@@ -4,7 +4,7 @@ import { ProductIdentification } from "../schemas/product";
 import { MarketplaceListing } from "../schemas/marketplace";
 import { SourceFetchResult, MarketplaceConfig } from "./types";
 import { MARKETPLACE_CONFIGS } from "./selectors";
-import { createPage, getBrowser } from "./browser";
+import { createPage } from "./browser";
 import { randomDelay, withTimeout } from "./rate-limit";
 
 export class AmazonProvider implements MarketplaceProvider {
@@ -97,8 +97,8 @@ export class AmazonProvider implements MarketplaceProvider {
       await page.close();
       return { ok: true, data: listings, sourceStatus: "live" };
 
-    } catch (error: any) {
-      if (error.message.includes("timeout")) {
+    } catch (error: unknown) {
+      if ((error as Error).message.includes("timeout")) {
         return { ok: false, reason: "timeout" };
       }
       return { ok: false, reason: "network_error" };
