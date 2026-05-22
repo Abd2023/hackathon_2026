@@ -55,15 +55,14 @@ function cleanText(value?: string | null) {
 function parsePrice(text?: string | null) {
   if (!text) return undefined;
 
-  const matches = [...text.matchAll(/(\d{1,3}(?:\.\d{3})*|\d+),(\d{2})\s*TL/gi)];
+  const normalizedText = text.replace(/\u00a0/g, " ").replace(/₺/g, " TL");
+  const matches = [...normalizedText.matchAll(/(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{1,2}))?\s*TL/gi)];
   if (matches.length === 0) return undefined;
 
-  const selected = text.toLocaleLowerCase("tr-TR").includes("sepette") && matches.length > 1
-    ? matches[0]
-    : matches[matches.length - 1];
-
+  const selected = matches[0];
   const [, whole, fraction] = selected;
-  const value = Number.parseFloat(`${whole.replace(/\./g, "")}.${fraction}`);
+  const normalizedFraction = (fraction || "00").padEnd(2, "0").slice(0, 2);
+  const value = Number.parseFloat(`${whole.replace(/\./g, "")}.${normalizedFraction}`);
 
   return Number.isFinite(value) ? value : undefined;
 }
@@ -129,9 +128,10 @@ function buildSearchProfile(input: ProductIdentification) {
   return {
     normalizedInput,
     normalizedModel,
-    terms: normalizedInput.split(" ").filter((term) => term.length > 2),
+    terms: normalizedInput.split(" ").filter((term) => term.length > 1),
     requiredTerms: normalizedModel.split(" ").filter((term) => term.length > 1),
     numberTokens: [...new Set(normalizedInput.match(/\b\d{2,4}\b/g) || [])],
+    modelLikeTokens: [...new Set(normalizedInput.match(/\b[a-z]*\d+[a-z0-9]*\b/g) || [])],
   };
 }
 
@@ -140,6 +140,10 @@ function scoreTitle(title: string, profile: ReturnType<typeof buildSearchProfile
   if (!normalizedTitle) return 0;
 
   if (profile.numberTokens.some((token) => !normalizedTitle.includes(token))) {
+    return 0;
+  }
+
+  if (profile.modelLikeTokens.some((token) => !normalizedTitle.includes(token))) {
     return 0;
   }
 
@@ -286,7 +290,8 @@ export class TrendyolProvider implements MarketplaceProvider {
       const text = (selector) => document.querySelector(selector)?.textContent?.replace(/\\s+/g, " ").trim();
       const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) || undefined;
       const absoluteUrl = (href) => href ? new URL(href, window.location.origin).toString() : undefined;
-      const priceText = text(".price-wrapper .new-price")
+      const priceText = text('[data-testid="normal-price"]')
+        || text(".price-wrapper .new-price")
         || text(".price-wrapper .price-view .discounted")
         || text(".price-wrapper .discounted")
         || text(".price-wrapper .prc-dsc")
@@ -297,6 +302,7 @@ export class TrendyolProvider implements MarketplaceProvider {
       const sellerInfoText = text(".seller-info") || text('[data-testid="seller-info"]');
       const featureText = text('[data-testid="attributes-section"]') || text(".attribute-sections") || text(".product-attributes");
       const imageUrl = attr('[data-testid="product-image-gallery-container"] img[data-testid="image"]', "src")
+        || attr('img[data-testid="image"]', "src")
         || attr('img[src*="/prod/"][src*="_org_zoom"]', "src")
         || attr('img[src*="/prod/"]', "src");
 
@@ -392,10 +398,14 @@ export class TrendyolProvider implements MarketplaceProvider {
 
           if (!title || title.length < 12) return [];
 
-          const priceText = text(card, ".prc-box-dscntd")
-            || text(card, ".prc-box-orgnl")
-            || text(card, "[data-testid='price-current-price']")
-            || text(card, "[class*='price']");
+        const priceText = text(card, '[data-testid="single-price"]')
+          || text(card, '[data-testid="price-section"]')
+          || text(card, ".single-price")
+          || text(card, ".price-section")
+          || text(card, ".prc-box-dscntd")
+          || text(card, ".prc-box-orgnl")
+          || text(card, "[data-testid='price-current-price']")
+          || text(card, "[class*='price']");
           const imageUrl = card.querySelector("img")?.getAttribute("src") || undefined;
 
           return [{ title, href, priceText, imageUrl }];

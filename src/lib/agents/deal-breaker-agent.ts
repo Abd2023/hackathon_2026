@@ -17,6 +17,10 @@ const dealBreakerSchema: Schema = {
   required: ["condition", "verdict", "confidence", "evidence", "shortExplanation"],
 };
 
+const DEAL_BREAKER_MODEL = process.env.GEMINI_TEXT_MODEL
+  || process.env.GEMINI_MODEL
+  || "gemini-2.5-flash-lite";
+
 function normalize(value: string) {
   return value
     .toLocaleLowerCase("tr-TR")
@@ -108,7 +112,7 @@ Kullanıcı Özel Şartı: ${dealBreaker}
       prompt,
       DEAL_BREAKER_AGENT_SYSTEM_PROMPT,
       dealBreakerSchema,
-      "gemini-2.5-flash"
+      DEAL_BREAKER_MODEL
     );
   } catch (error) {
     console.warn("Deal breaker agent failed, using deterministic evidence fallback", error);

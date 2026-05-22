@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #8a2be2;
-  --color-primary-dark: #6a1b9a;
-  --color-action: #1a1a1a;
-  --color-action-hover: #333333;
+  --color-primary: #0f766e;
+  --color-primary-dark: #115e59;
+  --color-action: #111827;
+  --color-action-hover: #243244;
   --color-success: #10b981;
   --color-success-light: #d1fae5;
-  --color-danger: #ef4444;
-  --color-danger-light: #fee2e2;
-  --color-surface: #f9fafb;
-  --color-surface-dark: #f3f4f6;
+  --color-danger: #e11d48;
+  --color-danger-light: #ffe4e6;
+  --color-surface: #f8fafc;
+  --color-surface-dark: #eef7f3;
+  --color-page: #fffaf3;
   --color-background: #ffffff;
-  --color-foreground: #111827;
-  --color-border: #e5e7eb;
-  --color-muted: #6b7280;
+  --color-foreground: #10201d;
+  --color-border: #e7e5e4;
+  --color-muted: #64748b;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -22,27 +23,34 @@
 
 @layer base {
   body {
-    background-color: var(--color-background);
+    background:
+      linear-gradient(180deg, #fffaf3 0%, #eef7f3 55%, #f8fafc 100%);
     color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 16px 40px rgb(15 118 110 / 0.12);
+  }
+}
+
 @layer components {
   .mobile-container {
-    @apply w-full max-w-[430px] mx-auto min-h-screen bg-background shadow-sm border-x border-border flex flex-col relative;
+    @apply relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col border-x border-border bg-background shadow-sm;
   }
-  
+
   .btn-primary {
-    @apply flex items-center justify-center w-full py-3 px-4 bg-action hover:bg-action-hover text-white rounded-xl font-medium transition-colors;
+    @apply flex w-full items-center justify-center rounded-lg bg-action px-4 py-3 font-black text-white transition hover:bg-action-hover;
   }
-  
+
   .btn-secondary {
-    @apply flex items-center justify-center w-full py-3 px-4 bg-surface-dark hover:bg-border text-foreground rounded-xl font-medium transition-colors;
+    @apply flex w-full items-center justify-center rounded-lg bg-white px-4 py-3 font-black text-foreground transition hover:bg-surface border border-border;
   }
 
   .card {
-    @apply bg-white border border-border rounded-xl p-4 shadow-sm;
+    @apply rounded-lg border border-border bg-white p-4 shadow-sm;
   }
 }

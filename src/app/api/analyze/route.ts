@@ -2,8 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import { runOrchestrator } from "@/lib/agents/orchestrator";
 import { logStructured } from "@/lib/logger";
 import { RecommendationResult } from "@/lib/schemas/analysis";
+import crypto from "crypto";
 
 const TIMEOUT_MS = 60000; // 60s timeout
+const ANALYSIS_CACHE_TTL_MS = Math.max(
+  60_000,
+  Number(process.env.ANALYSIS_CACHE_TTL_MS || 30 * 60_000)
+);
+const ANALYSIS_CACHE_MAX_ENTRIES = Math.max(
+  5,
+  Number(process.env.ANALYSIS_CACHE_MAX_ENTRIES || 50)
+);
+
+const analysisCache = new Map<string, { result: RecommendationResult; expiresAt: number }>();
+const inFlightAnalyses = new Map<string, Promise<RecommendationResult>>();
+
+function createCacheKey(base64Data: string, mimeType: string, dealBreaker?: string) {
+  return crypto
+    .createHash("sha256")
+    .update(`${mimeType}:${dealBreaker || ""}:${base64Data}`)
+    .digest("hex");
+}
+
+function getCachedAnalysis(cacheKey: string) {
+  const cached = analysisCache.get(cacheKey);
+  if (!cached) return undefined;
+
+  if (Date.now() > cached.expiresAt) {
+    analysisCache.delete(cacheKey);
+    return undefined;
+  }
+
+  return cached.result;
+}
+
+function setCachedAnalysis(cacheKey: string, result: RecommendationResult) {
+  if (analysisCache.size >= ANALYSIS_CACHE_MAX_ENTRIES) {
+    const oldestKey = analysisCache.keys().next().value as string | undefined;
+    if (oldestKey) analysisCache.delete(oldestKey);
+  }
+
+  analysisCache.set(cacheKey, {
+    result,
+    expiresAt: Date.now() + ANALYSIS_CACHE_TTL_MS,
+  });
+}
 
 function createDemoCache(): RecommendationResult {
   const demoListing = {
@@ -73,8 +116,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(createDemoCache());
     }
 
+    const cacheKey = createCacheKey(base64Data, mimeType, dealBreaker);
+    const cachedResult = getCachedAnalysis(cacheKey);
+    if (cachedResult) {
+      logStructured("analyze_cache_hit", { requestId });
+      return NextResponse.json(cachedResult);
+    }
+
     // Run orchestrator with timeout guard
-    const orchestratorPromise = runOrchestrator(base64Data, mimeType, dealBreaker);
+    let orchestratorPromise = inFlightAnalyses.get(cacheKey);
+    if (orchestratorPromise) {
+      logStructured("analyze_coalesced", { requestId });
+    } else {
+      orchestratorPromise = runOrchestrator(base64Data, mimeType, dealBreaker)
+        .then((result) => {
+          setCachedAnalysis(cacheKey, result);
+          return result;
+        })
+        .finally(() => {
+          inFlightAnalyses.delete(cacheKey);
+        });
+      inFlightAnalyses.set(cacheKey, orchestratorPromise);
+    }
+
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("Request timed out")), TIMEOUT_MS)
     );

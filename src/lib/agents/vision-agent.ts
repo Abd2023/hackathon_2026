@@ -23,6 +23,10 @@ const visionAgentSchema: Schema = {
   required: ["productName", "category", "searchQueries", "visualConfidence", "uncertaintyNotes"],
 };
 
+const VISION_MODEL = process.env.GEMINI_VISION_MODEL
+  || process.env.GEMINI_MODEL
+  || "gemini-2.5-flash-lite";
+
 export async function runVisionAgent(
   base64Image: string,
   mimeType: string,
@@ -36,7 +40,7 @@ export async function runVisionAgent(
     prompt,
     VISION_AGENT_SYSTEM_PROMPT,
     visionAgentSchema,
-    "gemini-2.5-flash",
+    VISION_MODEL,
     [{ inlineData: { data: base64Image, mimeType } }]
   );
 }

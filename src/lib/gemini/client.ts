@@ -6,11 +6,15 @@ export const geminiClient = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 type ImagePart = { inlineData: { data: string; mimeType: string } };
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-2.0-flash")
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS || "")
   .split(",")
   .map((model) => model.trim())
   .filter(Boolean);
+const MAX_ATTEMPTS = Math.max(1, Number(process.env.GEMINI_MAX_ATTEMPTS || 2));
+const MODEL_COOLDOWN_MS = Math.max(10_000, Number(process.env.GEMINI_MODEL_COOLDOWN_MS || 60_000));
+
+const modelCooldownUntil = new Map<string, number>();
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -29,9 +33,34 @@ function getErrorStatus(error: unknown) {
   return match ? Number(match[1]) : undefined;
 }
 
+function getRetryDelayMs(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/"retryDelay":\s*"(\d+)s"/);
+  return match ? Number(match[1]) * 1000 : undefined;
+}
+
 function isRetryable(error: unknown) {
   const status = getErrorStatus(error);
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function isModelCoolingDown(model: string) {
+  const until = modelCooldownUntil.get(model);
+  if (!until) return false;
+
+  if (Date.now() >= until) {
+    modelCooldownUntil.delete(model);
+    return false;
+  }
+
+  return true;
+}
+
+function coolDownModel(model: string, error: unknown) {
+  const status = getErrorStatus(error);
+  if (status !== 429 && status !== 503) return;
+
+  modelCooldownUntil.set(model, Date.now() + (getRetryDelayMs(error) || MODEL_COOLDOWN_MS));
 }
 
 function safeErrorMessage(error: unknown) {
@@ -63,7 +92,12 @@ export async function generateStructuredContent<T>(
   let lastError: unknown;
 
   for (const model of modelsToTry) {
-    const attempts = 2;
+    if (isModelCoolingDown(model)) {
+      lastError = new Error(`Gemini model ${model} is temporarily cooling down.`);
+      continue;
+    }
+
+    const attempts = MAX_ATTEMPTS;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
@@ -88,6 +122,8 @@ export async function generateStructuredContent<T>(
         lastError = error;
 
         const retryable = isRetryable(error);
+        if (retryable) coolDownModel(model, error);
+
         const canRetrySameModel = retryable && attempt < attempts;
         const canTryNextModel = modelsToTry.indexOf(model) < modelsToTry.length - 1;
 

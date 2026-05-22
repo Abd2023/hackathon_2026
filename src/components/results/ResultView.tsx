@@ -2,7 +2,7 @@ import React from "react";
 import { RecommendationResult } from "@/lib/schemas/analysis";
 import { MarketplaceListing } from "@/lib/schemas/marketplace";
 
-function sourceLabel(source: MarketplaceListing["source"]) {
+function sourceLabel(source?: MarketplaceListing["source"]) {
   const labels: Record<MarketplaceListing["source"], string> = {
     amazon_tr: "Amazon TR",
     trendyol: "Trendyol",
@@ -10,14 +10,28 @@ function sourceLabel(source: MarketplaceListing["source"]) {
     fixture: "Demo",
   };
 
-  return labels[source];
+  return source ? labels[source] || "Pazaryeri" : "Pazaryeri";
 }
 
-function statusBadge(status: MarketplaceListing["sourceStatus"]) {
-  if (status === "live") return { label: "Canlı veri", className: "bg-blue-100 text-blue-700" };
-  if (status === "cached") return { label: "Önbellek", className: "bg-gray-100 text-gray-700" };
-  if (status === "fixture") return { label: "Demo veri", className: "bg-purple-100 text-purple-700" };
-  return { label: "Kanıt sınırlı", className: "bg-red-100 text-red-700" };
+function sourceInitial(source?: MarketplaceListing["source"]) {
+  if (source === "amazon_tr") return "A";
+  if (source === "trendyol") return "T";
+  if (source === "hepsiburada") return "H";
+  return "D";
+}
+
+function sourceTone(source?: MarketplaceListing["source"]) {
+  if (source === "trendyol") return "bg-orange-500";
+  if (source === "hepsiburada") return "bg-sky-600";
+  if (source === "amazon_tr") return "bg-stone-900";
+  return "bg-primary";
+}
+
+function statusBadge(status?: MarketplaceListing["sourceStatus"]) {
+  if (status === "live") return { label: "Canlı", className: "bg-teal-50 text-teal-700 border-teal-100" };
+  if (status === "cached") return { label: "Önbellek", className: "bg-slate-50 text-slate-600 border-slate-200" };
+  if (status === "fixture") return { label: "Demo", className: "bg-amber-50 text-amber-700 border-amber-100" };
+  return { label: "Sınırlı", className: "bg-rose-50 text-rose-700 border-rose-100" };
 }
 
 function uniqueListings(result: RecommendationResult) {
@@ -33,6 +47,63 @@ function uniqueListings(result: RecommendationResult) {
   });
 }
 
+function formatPrice(price?: number) {
+  if (!Number.isFinite(price)) return "-";
+  return `${Math.round(price || 0).toLocaleString("tr-TR")} ₺`;
+}
+
+function cheapestPrice(listings: MarketplaceListing[]) {
+  const prices = listings
+    .map((listing) => listing.priceTRY)
+    .filter((price) => Number.isFinite(price));
+
+  return prices.length > 0 ? Math.min(...prices) : undefined;
+}
+
+function listingBadges(
+  listing: MarketplaceListing,
+  bestUrl?: string,
+  cheapest?: number
+) {
+  const badges: Array<{ label: string; className: string }> = [];
+
+  if (listing.url === bestUrl) {
+    badges.push({ label: "Önerilen", className: "bg-primary text-white border-primary" });
+  }
+
+  if (cheapest !== undefined && listing.priceTRY === cheapest) {
+    badges.push({ label: "En Ucuz", className: "bg-emerald-50 text-emerald-700 border-emerald-100" });
+  }
+
+  if ((listing.sellerRating || 0) >= 4.5) {
+    badges.push({ label: "Güvenli Satıcı", className: "bg-amber-50 text-amber-700 border-amber-100" });
+  }
+
+  return badges;
+}
+
+function dealBreakerTone(verdict?: string) {
+  if (verdict === "pass") return "border-emerald-200 bg-white/15";
+  if (verdict === "fail") return "border-rose-200 bg-white/15";
+  return "border-white/25 bg-white/10";
+}
+
+function alternativeText(listing: MarketplaceListing, cheapest?: number) {
+  if (cheapest !== undefined && listing.priceTRY === cheapest) {
+    return "Daha düşük fiyat verdiği için ikinci seçenek olarak tutuldu. Satıcı ve yorum bilgilerini satın almadan önce kontrol edin.";
+  }
+
+  if ((listing.sellerRating || 0) >= 4.5) {
+    return "Satıcı puanı güçlü olduğu için güvenli bir alternatif olarak öne çıkıyor.";
+  }
+
+  if ((listing.reviewCount || 0) > 100) {
+    return "Yorum sayısı daha yüksek olduğu için karşılaştırmaya değer.";
+  }
+
+  return "Fiyat ve temel pazaryeri sinyalleri dengeli olduğu için yedek seçenek olarak önerildi.";
+}
+
 export function ResultView({
   result,
   imagePreview,
@@ -43,139 +114,189 @@ export function ResultView({
   onReset: () => void;
 }) {
   const listings = uniqueListings(result);
+  const cheapest = cheapestPrice(listings);
   const productTitle = result.product?.productName || result.bestListing?.title || "Bulunan Ürün";
   const productCategory = result.product?.category;
-  const productImage = imagePreview || result.bestListing?.imageUrl || "https://placehold.co/150x150?text=Urun";
-  const decisionTone = result.dealBreaker?.verdict === "fail" || /risk|dikkat|bulunamadı/i.test(result.decisionTitle)
-    ? "bg-gradient-to-br from-danger to-red-700"
-    : "bg-gradient-to-br from-success to-emerald-700";
+  const productImage = imagePreview || result.bestListing?.imageUrl || "https://placehold.co/160x160?text=Urun";
+  const bestUrl = result.bestListing?.url;
+  const alternative = result.alternativeListing && result.alternativeListing.url !== bestUrl
+    ? result.alternativeListing
+    : listings.find((listing) => listing.url !== bestUrl);
+  const isRisky = result.dealBreaker?.verdict === "fail" || /risk|dikkat|bulunamadı/i.test(result.decisionTitle);
+  const decisionTone = isRisky
+    ? "from-rose-600 to-orange-600"
+    : "from-primary-dark to-violet-700";
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 bg-surface-dark pb-20 animate-in fade-in duration-500">
-      <div className="card flex gap-4 items-center border-l-4 border-l-primary">
-        <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={productImage} alt="Ürün görseli" className="w-full h-full object-contain p-1" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 bg-success-light text-success rounded-full">
-              %{Math.round(result.matchPercent)} Eşleşme
-            </span>
+    <div className="flex-1 overflow-y-auto bg-page p-4 pb-20 animate-in fade-in duration-500">
+      <div className="flex flex-col gap-5">
+        <section className="card flex gap-4 items-center">
+          <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={productImage} alt="Ürün görseli" className="h-full w-full object-contain p-1.5" />
           </div>
-          <h2 className="font-bold text-foreground leading-tight text-sm line-clamp-2">{productTitle}</h2>
-          {productCategory && <p className="text-xs text-muted mt-1 line-clamp-1">{productCategory}</p>}
-        </div>
-      </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
+                %{Math.round(result.matchPercent)} eşleşme
+              </span>
+              {productCategory && (
+                <span className="truncate rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
+                  {productCategory}
+                </span>
+              )}
+            </div>
+            <h2 className="line-clamp-2 text-[15px] font-bold leading-snug text-foreground">{productTitle}</h2>
+          </div>
+        </section>
 
-      <div className={`card text-white ${decisionTone}`}>
-        <div className="flex items-center gap-2 mb-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
-          <h3 className="font-bold text-lg">{result.decisionTitle}</h3>
-        </div>
-        <p className="text-sm opacity-90 leading-relaxed">{result.decisionSummary}</p>
-      </div>
-
-      {result.dealBreaker && (
-        <div className={`card border-l-4 ${result.dealBreaker.verdict === "pass" ? "border-l-success" : result.dealBreaker.verdict === "fail" ? "border-l-danger" : "border-l-primary"}`}>
-          <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-            <span className={result.dealBreaker.verdict === "pass" ? "text-success" : result.dealBreaker.verdict === "fail" ? "text-danger" : "text-primary"}>
-              {result.dealBreaker.verdict === "pass" ? "✓" : result.dealBreaker.verdict === "fail" ? "✕" : "?"}
+        <section className={`rounded-lg bg-gradient-to-br ${decisionTone} p-5 text-white shadow-soft`}>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-amber-200">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m13 2-9 13h8l-1 7 9-13h-8l1-7Z" />
+              </svg>
             </span>
-            Özel Şart: {result.dealBreaker.verdict === "pass" ? "Geçti" : result.dealBreaker.verdict === "fail" ? "Kaldı" : "Belirsiz"}
-          </h4>
-          <p className="text-sm italic text-muted mb-2">&quot;{result.dealBreaker.condition}&quot;</p>
-          {result.dealBreaker.shortExplanation && (
-            <p className="text-sm font-medium mb-3">{result.dealBreaker.shortExplanation}</p>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-white/75">Yapay Zeka Kararı</p>
+              <h3 className="text-lg font-bold leading-tight">{result.decisionTitle}</h3>
+            </div>
+          </div>
+          <p className="text-sm font-medium leading-6 text-white/95">{result.decisionSummary}</p>
+
+          {result.dealBreaker && (
+            <div className={`mt-4 rounded-lg border p-3 ${dealBreakerTone(result.dealBreaker.verdict)}`}>
+              <div className="mb-1 flex items-center gap-2 text-sm font-bold">
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 13c0 5-3.5 7.5-7.7 8.8a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.4a1.3 1.3 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1v7Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                Şartınız analiz edildi
+              </div>
+              <p className="text-xs font-semibold leading-5 text-white/90">
+                {result.dealBreaker.shortExplanation}
+              </p>
+              {result.dealBreaker.evidence[0] && (
+                <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/75">
+                  “{result.dealBreaker.evidence[0]}”
+                </p>
+              )}
+            </div>
           )}
-          <ul className="text-sm space-y-1">
-            {result.dealBreaker.evidence.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-muted">•</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        </section>
 
-      <section className="flex flex-col gap-3">
-        <h3 className="font-bold">Pazaryeri Karşılaştırması</h3>
-        {listings.map((listing) => {
-          const isBest = result.bestListing?.url === listing.url;
-          const badge = statusBadge(listing.sourceStatus);
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-foreground">Pazaryeri Karşılaştırması</h3>
+            <span className="text-xs font-semibold text-muted">{listings.length} sonuç</span>
+          </div>
 
-          return (
+          {listings.map((listing) => {
+            const isBest = bestUrl === listing.url;
+            const status = statusBadge(listing.sourceStatus);
+            const badges = listingBadges(listing, bestUrl, cheapest);
+
+            return (
+              <a
+                key={listing.url}
+                href={listing.url}
+                target="_blank"
+                rel="noreferrer"
+                className={`card flex items-center gap-3 transition hover:border-primary ${
+                  isBest ? "border-primary ring-2 ring-primary/10" : ""
+                }`}
+              >
+                <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-base font-black text-white ${sourceTone(listing.source)}`}>
+                  {sourceInitial(listing.source)}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                    <span className="font-bold text-foreground">{sourceLabel(listing.source)}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                  <p className="line-clamp-1 text-xs text-muted">Satıcı: {listing.sellerName || "Bilinmiyor"}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                    {listing.sellerRating && <span>⭐ {listing.sellerRating} satıcı</span>}
+                    {listing.productRating && <span>Ürün {listing.productRating}/5</span>}
+                    {listing.reviewCount && <span>{listing.reviewCount.toLocaleString("tr-TR")} yorum</span>}
+                  </div>
+                </div>
+
+                <div className="flex min-w-[86px] flex-col items-end gap-1">
+                  <span className="text-right text-lg font-black text-foreground">{formatPrice(listing.priceTRY)}</span>
+                  <div className="flex flex-col items-end gap-1">
+                    {badges.slice(0, 2).map((badge) => (
+                      <span key={badge.label} className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </section>
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="card border-emerald-100 bg-emerald-50/70">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-black text-emerald-800">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span>
+              Artılar
+            </h4>
+            <ul className="space-y-2 text-sm leading-5 text-emerald-950">
+              {result.pros.map((pro) => (
+                <li key={pro}>{pro}</li>
+              ))}
+              {result.pros.length === 0 && <li className="text-muted">Net artı sinyali yok.</li>}
+            </ul>
+          </div>
+
+          <div className="card border-orange-100 bg-orange-50/70">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-black text-orange-800">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white">!</span>
+              Eksikler
+            </h4>
+            <ul className="space-y-2 text-sm leading-5 text-orange-950">
+              {result.cons.map((con) => (
+                <li key={con}>{con}</li>
+              ))}
+              {result.cons.length === 0 && <li className="text-muted">Belirgin risk sinyali yok.</li>}
+            </ul>
+          </div>
+        </section>
+
+        {alternative && (
+          <section className="rounded-lg border border-teal-100 bg-teal-50 p-5">
+            <div className="mb-3 flex items-center gap-2 text-teal-900">
+              <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 20A7 7 0 0 1 4 13c0-5 7-9 16-9 0 9-4 16-9 16Z" />
+                <path d="M4 13c3 0 7 0 10-3" />
+              </svg>
+              <h3 className="text-base font-black">Ajanın Alternatif Önerisi</h3>
+            </div>
+            <p className="font-bold leading-snug text-foreground">
+              {sourceLabel(alternative.source)} - {formatPrice(alternative.priceTRY)}
+            </p>
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-700">{alternative.title}</p>
+            <p className="mt-2 text-sm leading-6 text-teal-950">{alternativeText(alternative, cheapest)}</p>
             <a
-              key={listing.url}
-              href={listing.url}
+              href={alternative.url}
               target="_blank"
               rel="noreferrer"
-              className={`card flex items-center justify-between gap-3 transition-all hover:border-primary cursor-pointer ${isBest ? "ring-2 ring-primary border-transparent" : ""}`}
+              className="mt-4 flex h-11 items-center justify-center rounded-lg bg-teal-200 text-sm font-black text-teal-950 transition hover:bg-teal-300"
             >
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-primary-dark tracking-wider text-xs">{sourceLabel(listing.source)}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${badge.className}`}>{badge.label}</span>
-                </div>
-                <span className="text-xs text-muted line-clamp-1">Satıcı: {listing.sellerName || "Bilinmiyor"}</span>
-                {(listing.sellerRating || listing.productRating) && (
-                  <span className="text-xs text-muted">
-                    {listing.sellerRating ? `Satıcı ${listing.sellerRating}/5` : ""}
-                    {listing.sellerRating && listing.productRating ? " · " : ""}
-                    {listing.productRating ? `Ürün ${listing.productRating}/5` : ""}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col items-end flex-shrink-0">
-                {isBest && <span className="text-[10px] font-bold text-primary uppercase mb-1">En iyi seçenek</span>}
-                <span className="font-bold text-lg">{listing.priceTRY.toLocaleString("tr-TR")} ₺</span>
-              </div>
+              İncele
             </a>
-          );
-        })}
-      </section>
+          </section>
+        )}
 
-      <section className="grid grid-cols-2 gap-3">
-        <div className="card bg-success-light/30 border-success/20">
-          <h4 className="font-bold text-success text-sm mb-2 flex items-center gap-1">
-            <span>✓</span> Artıları
-          </h4>
-          <ul className="text-xs space-y-1.5">
-            {result.pros.map((pro) => (
-              <li key={pro}>• {pro}</li>
-            ))}
-            {result.pros.length === 0 && <li className="text-muted italic">Belirtilmedi</li>}
-          </ul>
-        </div>
-        <div className="card bg-danger-light/30 border-danger/20">
-          <h4 className="font-bold text-danger text-sm mb-2 flex items-center gap-1">
-            <span>!</span> Eksileri
-          </h4>
-          <ul className="text-xs space-y-1.5">
-            {result.cons.map((con) => (
-              <li key={con}>• {con}</li>
-            ))}
-            {result.cons.length === 0 && <li className="text-muted italic">Belirtilmedi</li>}
-          </ul>
-        </div>
-      </section>
-
-      <section className="text-xs text-muted bg-surface p-3 rounded-lg border border-border">
-        <p className="font-semibold mb-1">Bilgilendirme:</p>
-        <ul className="list-disc pl-4 space-y-0.5">
-          {result.evidenceLimitations.map((limit) => (
-            <li key={limit}>{limit}</li>
-          ))}
-        </ul>
-      </section>
-
-      <button onClick={onReset} className="btn-secondary mt-2">
-        Yeni Sorgu Yap
-      </button>
+        <button onClick={onReset} className="btn-secondary mt-1">
+          Yeni Sorgu Yap
+        </button>
+      </div>
     </div>
   );
 }
