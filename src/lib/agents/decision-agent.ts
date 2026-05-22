@@ -56,7 +56,8 @@ ${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
   `;
 
   try {
-    const rawResult = await generateStructuredContent<any>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawResult = await generateStructuredContent<Record<string, any>>(
       prompt,
       RECOMMENDATION_AGENT_SYSTEM_PROMPT,
       recommendationSchema,

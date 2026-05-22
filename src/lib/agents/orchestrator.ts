@@ -1,4 +1,4 @@
-import { RecommendationResult, DealBreakerEvaluation } from "../schemas/analysis";
+import { RecommendationResult } from "../schemas/analysis";
 import { runVisionAgent } from "./vision-agent";
 import { HybridProvider } from "../marketplaces/provider";
 import { runDecisionAgent } from "./decision-agent";
@@ -23,7 +23,7 @@ export async function runOrchestrator(
        pros: [],
        cons: [],
        evidenceLimitations: ["Pazaryerlerinde ürün bulunamadı."]
-     } as any;
+     } as RecommendationResult;
   }
 
   // Step 3 & 4 & 5: Decision Agent (Evidence, Scoring, Recommendation Assembly)
