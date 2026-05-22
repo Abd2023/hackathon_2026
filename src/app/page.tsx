@@ -13,7 +13,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [resultData, setResultData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProgressComplete = () => {
+    setIsLoading(false);
+    setShowResult(true);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,12 +51,29 @@ export default function Home() {
     if (!imageFile) return;
 
     setIsLoading(true);
-    // Real API call will go here later
-  };
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      if (dealBreaker) formData.append("dealBreaker", dealBreaker);
 
-  const handleProgressComplete = () => {
-    setIsLoading(false);
-    setShowResult(true);
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error || "Analiz sırasında bir hata oluştu.");
+      }
+
+      const data = await response.json();
+      setResultData(data);
+      handleProgressComplete();
+    } catch (err: any) {
+      setError(err.message);
+      setIsLoading(false);
+    }
   };
 
   const resetFlow = () => {
@@ -65,8 +89,8 @@ export default function Home() {
       
       {isLoading ? (
         <AgentProgress onComplete={handleProgressComplete} />
-      ) : showResult ? (
-        <ResultView onReset={resetFlow} />
+      ) : showResult && resultData ? (
+        <ResultView result={resultData} onReset={resetFlow} />
       ) : (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
           <section className="flex flex-col gap-2">
