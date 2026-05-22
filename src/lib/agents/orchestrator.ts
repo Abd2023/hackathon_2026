@@ -1,6 +1,6 @@
 import { RecommendationResult, DealBreakerEvaluation } from "../schemas/analysis";
 import { runVisionAgent } from "./vision-agent";
-import { FIXTURE_MARKETPLACE_RESULTS } from "../fixtures/marketplace-results";
+import { HybridProvider } from "../marketplaces/provider";
 import { scoreListings } from "../scoring/score-listings";
 
 export async function runOrchestrator(
@@ -12,15 +12,8 @@ export async function runOrchestrator(
   const productInfo = await runVisionAgent(base64Image, mimeType, dealBreaker);
 
   // Step 2: Search Agent (Mocked with Fixtures for now)
-  // We'll use a mocked keyword match for fixtures
-  let searchKey = "mouse"; // fallback
-  const queryLower = productInfo.searchQueries.join(" ").toLowerCase();
-  if (queryLower.includes("klavye") || queryLower.includes("keychron")) searchKey = "keyboard";
-  else if (queryLower.includes("kulaklık") || queryLower.includes("sony")) searchKey = "headphones";
-  else if (queryLower.includes("telefon") || queryLower.includes("samsung")) searchKey = "smartphone";
-  else if (queryLower.includes("süpürge") || queryLower.includes("roborock")) searchKey = "vacuum";
-
-  const rawListings = FIXTURE_MARKETPLACE_RESULTS[searchKey] || FIXTURE_MARKETPLACE_RESULTS["mouse"];
+  const provider = new HybridProvider();
+  const rawListings = await provider.search(productInfo);
 
   // Step 3: Deal Breaker Agent (Mocked logic for now)
   const dealBreakerEval: DealBreakerEvaluation | undefined = dealBreaker ? {
