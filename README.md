@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gorsel Asistan (MVP)
 
-## Getting Started
+Gorsel Asistan is an AI-powered, mobile-first web application designed to help users make better e-commerce purchasing decisions simply by taking a picture of a product. 
 
-First, run the development server:
+This project was built as part of a Hackathon to demonstrate the power of Agentic Workflows using Google Gemini.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Vision Agent**: Takes an uploaded image of a product, identifies its brand, category, and exact model, and generates search queries.
+- **Deal-Breaker (Özel Şart)**: Users can input a specific condition (e.g., "Must not have a fragile scroll wheel"). The AI evaluates the product reviews against this exact condition.
+- **Marketplace Provider System**: A modular hybrid fetching system that can fall back to deterministic mock data (Fixtures) or perform live scraping.
+- **Decision Agent**: Evaluates the retrieved marketplace listings, analyzes pros/cons, checks the deal-breaker condition, and synthesizes a final verdict ("Güvenle Alabilirsiniz" or "Özel Şartı Sağlamıyor").
+- **Mobile-First UI**: Built with Next.js 16 and Tailwind CSS v4 to look like a native mobile app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app`: Next.js 16 App Router UI and API routes (`/api/analyze`).
+- `src/components`: Reusable React components (`AgentProgress`, `ResultView`, etc).
+- `src/lib/agents`: The core AI layer (`vision-agent.ts`, `decision-agent.ts`, `orchestrator.ts`).
+- `src/lib/gemini`: Configures `@google/genai` client and prompt templates.
+- `src/lib/marketplaces`: The data source layer for gathering product listings.
+- `src/lib/schemas`: Zod schemas for structured data.
+- `src/lib/scraping`: Playwright-based live scraping foundation.
 
-## Learn More
+## Local Setup
 
-To learn more about Next.js, take a look at the following resources:
+1. **Clone & Install**
+   ```bash
+   git clone ...
+   cd hackathon_2026
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Environment Variables**
+   Create a `.env.local` file by copying `.env.example`:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Add your Gemini API Key to `.env.local`:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   DATA_MODE=fixture # Change to "live" to enable experimental scraping
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Run the App**
+   ```bash
+   npm run dev
+   ```
 
-## Deploy on Vercel
+4. **Testing the App**
+   Open `http://localhost:3000` in a mobile emulator or resize your browser to mobile width.
+   Upload a picture of a product (e.g., a mouse, keyboard, headphones).
+   (Optional) Enter a "Deal Breaker" condition.
+   Click "Hemen Bul".
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Agentic Flow Overview
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. User uploads an image -> **Vision Agent** (Gemini) classifies it.
+2. The orchestrator triggers the **Marketplace Provider** to search for listings.
+3. The **Decision Agent** (Gemini) evaluates the listings and user's deal-breaker condition.
+4. The final Recommendation JSON is presented via the `ResultView` UI.
