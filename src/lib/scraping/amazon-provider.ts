@@ -81,7 +81,7 @@ export class AmazonProvider implements MarketplaceProvider {
         const imageUrl = card.find(this.config.selectors.image!).attr("src") || "";
 
         listings.push({
-          source: "Amazon",
+          source: "amazon_tr",
           url: absoluteUrl,
           priceTRY,
           title,
