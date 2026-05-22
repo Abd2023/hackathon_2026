@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #8a2be2;
+  --color-primary-dark: #6a1b9a;
+  --color-action: #1a1a1a;
+  --color-action-hover: #333333;
+  --color-success: #10b981;
+  --color-success-light: #d1fae5;
+  --color-danger: #ef4444;
+  --color-danger-light: #fee2e2;
+  --color-surface: #f9fafb;
+  --color-surface-dark: #f3f4f6;
+  --color-background: #ffffff;
+  --color-foreground: #111827;
+  --color-border: #e5e7eb;
+  --color-muted: #6b7280;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .mobile-container {
+    @apply w-full max-w-[430px] mx-auto min-h-screen bg-background shadow-sm border-x border-border flex flex-col relative;
+  }
+  
+  .btn-primary {
+    @apply flex items-center justify-center w-full py-3 px-4 bg-action hover:bg-action-hover text-white rounded-xl font-medium transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply flex items-center justify-center w-full py-3 px-4 bg-surface-dark hover:bg-border text-foreground rounded-xl font-medium transition-colors;
+  }
+
+  .card {
+    @apply bg-white border border-border rounded-xl p-4 shadow-sm;
+  }
+}
