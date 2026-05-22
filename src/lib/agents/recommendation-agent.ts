@@ -14,17 +14,6 @@ const recommendationSchema: Schema = {
     decisionSummary: { type: Type.STRING },
     pros: { type: Type.ARRAY, items: { type: Type.STRING } },
     cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-    dealBreaker: {
-      type: Type.OBJECT,
-      nullable: true,
-      properties: {
-        condition: { type: Type.STRING },
-        verdict: { type: Type.STRING, enum: ["pass", "fail"] },
-        confidence: { type: Type.NUMBER },
-        evidence: { type: Type.ARRAY, items: { type: Type.STRING } },
-      },
-      required: ["condition", "verdict", "confidence", "evidence"],
-    },
     evidenceLimitations: { type: Type.ARRAY, items: { type: Type.STRING } },
     bestListingUrl: { type: Type.STRING },
     alternativeListingUrl: { type: Type.STRING, nullable: true },
@@ -40,10 +29,10 @@ const recommendationSchema: Schema = {
   ],
 };
 
-export async function runDecisionAgent(
+export async function runRecommendationAgent(
   productInfo: ProductIdentification,
   listings: MarketplaceListing[],
-  dealBreaker?: string
+  dealBreakerEval?: DealBreakerEvaluation
 ): Promise<RecommendationResult> {
   const prompt = `
 Ürün Bilgisi:
@@ -52,7 +41,7 @@ ${JSON.stringify(productInfo, null, 2)}
 Pazaryeri Verileri:
 ${JSON.stringify(listings, null, 2)}
 
-${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
+${dealBreakerEval ? `Deal-Breaker Değerlendirmesi: ${JSON.stringify(dealBreakerEval, null, 2)}` : "Özel şart belirtilmedi."}
   `;
 
   try {
@@ -77,20 +66,12 @@ ${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
       decisionSummary: rawResult.decisionSummary,
       pros: rawResult.pros,
       cons: rawResult.cons,
-      dealBreaker: rawResult.dealBreaker,
+      dealBreaker: dealBreakerEval,
       evidenceLimitations: rawResult.evidenceLimitations,
     };
   } catch (error) {
-    console.warn("Decision agent failed, falling back to deterministic scoring", error);
+    console.warn("Recommendation agent failed, falling back to deterministic scoring", error);
     
-    // Fallback to deterministic scoring
-    const dealBreakerEval: DealBreakerEvaluation | undefined = dealBreaker ? {
-      condition: dealBreaker,
-      verdict: "pass",
-      confidence: 50,
-      evidence: ["AI analizi başarısız oldu, manuel değerlendirme yapılamadı."],
-    } : undefined;
-
     const scored = scoreListings(listings, dealBreakerEval);
     const best = scored[0] || listings[0];
     const alt = scored.length > 1 ? scored[1] : undefined;

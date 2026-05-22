@@ -1,7 +1,8 @@
 import { RecommendationResult } from "../schemas/analysis";
 import { runVisionAgent } from "./vision-agent";
 import { HybridProvider } from "../marketplaces/provider";
-import { runDecisionAgent } from "./decision-agent";
+import { runDealBreakerAgent } from "./deal-breaker-agent";
+import { runRecommendationAgent } from "./recommendation-agent";
 
 export async function runOrchestrator(
   base64Image: string,
@@ -26,6 +27,12 @@ export async function runOrchestrator(
      } as RecommendationResult;
   }
 
-  // Step 3 & 4 & 5: Decision Agent (Evidence, Scoring, Recommendation Assembly)
-  return runDecisionAgent(productInfo, rawListings, dealBreaker);
+  // Step 3: Deal Breaker Agent
+  let dealBreakerEval;
+  if (dealBreaker) {
+    dealBreakerEval = await runDealBreakerAgent(productInfo, rawListings, dealBreaker);
+  }
+
+  // Step 4 & 5: Recommendation Agent
+  return runRecommendationAgent(productInfo, rawListings, dealBreakerEval);
 }

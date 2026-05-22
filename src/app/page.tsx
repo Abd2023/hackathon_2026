@@ -122,6 +122,7 @@ export default function Home() {
                   />
                   <button
                     type="button"
+                    aria-label="Görseli Kaldır"
                     onClick={() => {
                       setImageFile(null);
                       setImagePreview(null);

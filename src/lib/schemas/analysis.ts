@@ -6,6 +6,7 @@ export const DealBreakerEvaluationSchema = z.object({
   verdict: z.enum(["pass", "fail", "uncertain"]),
   confidence: z.number().min(0).max(100),
   evidence: z.array(z.string()),
+  shortExplanation: z.string(),
 });
 
 export type DealBreakerEvaluation = z.infer<typeof DealBreakerEvaluationSchema>;

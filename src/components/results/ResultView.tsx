@@ -46,7 +46,10 @@ export function ResultView({ result, onReset }: { result: RecommendationResult, 
             </span> 
             Özel Şartınız: {result.dealBreaker.verdict === 'pass' ? 'Geçti' : 'Kaldı'}
           </h4>
-          <p className="text-sm italic text-muted mb-3">&quot;{result.dealBreaker.condition}&quot;</p>
+          <p className="text-sm italic text-muted mb-2">&quot;{result.dealBreaker.condition}&quot;</p>
+          {result.dealBreaker.shortExplanation && (
+            <p className="text-sm font-medium mb-3">{result.dealBreaker.shortExplanation}</p>
+          )}
           <ul className="text-sm space-y-1">
             {result.dealBreaker.evidence.map((item, idx) => (
               <li key={idx} className="flex gap-2">
@@ -67,8 +70,14 @@ export function ResultView({ result, onReset }: { result: RecommendationResult, 
           const isBest = idx === 0;
           return (
             <a key={idx} href={listing.url} className={`card flex items-center justify-between transition-all hover:border-primary cursor-pointer ${isBest ? 'ring-2 ring-primary border-transparent' : ''}`}>
-              <div className="flex flex-col">
-                <span className="font-bold text-primary-dark">{listing.source}</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-primary-dark uppercase tracking-wider text-xs">{listing.source}</span>
+                  {listing.sourceStatus === 'live' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Canlı veri</span>}
+                  {listing.sourceStatus === 'cached' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">Önbellek</span>}
+                  {listing.sourceStatus === 'fixture' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">Demo veri</span>}
+                  {(listing.sourceStatus === 'blocked' || listing.sourceStatus === 'error') && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Kanıtsız</span>}
+                </div>
                 <span className="text-xs text-muted flex items-center gap-1">
                   Satıcı: {listing.sellerName || "Bilinmiyor"} {listing.sellerRating && <span className="text-orange-500">★{listing.sellerRating}</span>}
                 </span>
