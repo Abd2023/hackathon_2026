@@ -36,7 +36,7 @@ export async function runVisionAgent(
     prompt,
     VISION_AGENT_SYSTEM_PROMPT,
     visionAgentSchema,
-    "gemini-2.5-pro",
+    "gemini-2.5-flash",
     [{ inlineData: { data: base64Image, mimeType } }]
   );
 }

@@ -5,7 +5,7 @@ export const MARKETPLACE_CONFIGS: Record<string, MarketplaceConfig> = {
     id: "amazon_tr",
     searchUrlTemplate: "https://www.amazon.com.tr/s?k={query}",
     maxPages: 1,
-    delayRangeMs: [1000, 3000],
+    delayRangeMs: [200, 700],
     selectors: {
       card: "div[data-component-type='s-search-result']",
       title: "h2 a.a-link-normal span.a-text-normal",

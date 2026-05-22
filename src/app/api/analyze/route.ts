@@ -1,24 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runOrchestrator } from "@/lib/agents/orchestrator";
 import { logStructured } from "@/lib/logger";
+import { RecommendationResult } from "@/lib/schemas/analysis";
 
-const TIMEOUT_MS = 25000; // 25s timeout
+const TIMEOUT_MS = 60000; // 60s timeout
 
-function createDemoCache() {
+function createDemoCache(): RecommendationResult {
+  const demoListing = {
+    source: "fixture" as const,
+    title: "Demo Ürün (Önbellek)",
+    priceTRY: 1499.99,
+    url: "https://example.com/demo",
+    sellerName: "Demo satıcı",
+    sellerRating: 4.6,
+    productRating: 4.4,
+    reviewCount: 120,
+    reviewSnippets: ["Demo akışı için hazırlanmış güvenli örnek veri."],
+    sourceStatus: "cached" as const,
+  };
+
   return {
+    product: {
+      productName: "Demo Ürün",
+      category: "Demo",
+      searchQueries: ["Demo Ürün"],
+      visualConfidence: 90,
+      uncertaintyNotes: ["Bu sonuç küçük test görseli için demo önbelleğinden döndü."],
+    },
+    listings: [demoListing],
+    bestListing: demoListing,
     matchPercent: 98,
     decisionTitle: "Harika Bir Seçim",
     decisionSummary: "Bu ürün demo önbelleğinden getirilmiştir. Kriterlerinizi karşılıyor.",
     pros: ["Hızlı teslimat", "Güvenilir satıcı"],
     cons: ["Sınırlı stok"],
     evidenceLimitations: ["Bu bir demo verisidir, gerçek pazar yerleri aranmamıştır."],
-    bestListing: {
-      source: "cached",
-      title: "Demo Ürün (Önbellek)",
-      priceTRY: 1499.99,
-      url: "https://example.com/demo",
-      sourceStatus: "cached"
-    }
   };
 }
 
@@ -63,13 +79,12 @@ export async function POST(req: NextRequest) {
       setTimeout(() => reject(new Error("Request timed out")), TIMEOUT_MS)
     );
 
-    const result = await Promise.race([orchestratorPromise, timeoutPromise]);
+    const result = await Promise.race([orchestratorPromise, timeoutPromise]) as RecommendationResult;
 
     logStructured("analyze_success", { 
       requestId, 
       durationMs: Date.now() - startTime,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      matchPercent: (result as any).matchPercent
+      matchPercent: result.matchPercent
     });
 
     return NextResponse.json(result);

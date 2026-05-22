@@ -1,7 +1,16 @@
 import { MarketplaceListing } from "../schemas/marketplace";
 import { DealBreakerEvaluation } from "../schemas/analysis";
 
-type ScoredListing = MarketplaceListing & { score: number };
+export type ScoredListing = MarketplaceListing & { score: number };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function hasReturnSignal(listing: MarketplaceListing) {
+  const text = `${listing.returnPolicySummary || ""} ${listing.shippingSummary || ""}`.toLocaleLowerCase("tr-TR");
+  return /iade|return|amazon|prime|güvenli|guvenli/.test(text);
+}
 
 export function scoreListings(
   listings: MarketplaceListing[],
@@ -9,40 +18,30 @@ export function scoreListings(
 ): ScoredListing[] {
   if (!listings || listings.length === 0) return [];
 
-  // Filter out listings where deal-breaker failed
-  const validListings = dealBreaker?.verdict === "fail" 
-    ? listings.filter(() => false) // If deal breaker applies globally and failed, none are valid. In reality, dealbreaker could be per-listing, but keeping it simple for now.
-    : listings;
+  const lowestPrice = Math.min(...listings.map((listing) => listing.priceTRY));
 
-  if (validListings.length === 0) return [];
-
-  // Find the lowest price for normalization
-  const lowestPrice = Math.min(...validListings.map(l => l.priceTRY));
-
-  const scored = validListings.map(listing => {
+  const scored = listings.map((listing) => {
     let score = 0;
 
-    // Price score: max 50 points (cheapest gets 50, others get proportionally less)
-    const priceScore = (lowestPrice / listing.priceTRY) * 50;
+    const priceScore = (lowestPrice / listing.priceTRY) * 35;
     score += priceScore;
 
-    // Seller trust score: max 30 points (based on rating out of 5)
-    if (listing.sellerRating) {
-      score += (listing.sellerRating / 5) * 30;
-    } else {
-      score += 15; // default middle score if unknown
-    }
+    score += listing.sellerRating ? (listing.sellerRating / 5) * 25 : 12;
+    score += listing.productRating ? (listing.productRating / 5) * 20 : 8;
 
-    // Product trust score: max 20 points
-    if (listing.productRating) {
-      score += (listing.productRating / 5) * 20;
-    } else {
-      score += 10;
-    }
+    const reviewDepth = Math.min(listing.reviewCount || 0, 500) / 500;
+    score += reviewDepth * 8;
 
-    return { ...listing, score };
+    if (hasReturnSignal(listing)) score += 7;
+    if (listing.sourceStatus === "live") score += 5;
+    if (listing.sourceStatus === "fixture" || listing.sourceStatus === "cached") score -= 3;
+
+    if (dealBreaker?.verdict === "pass") score += 5;
+    if (dealBreaker?.verdict === "uncertain") score -= 8;
+    if (dealBreaker?.verdict === "fail") score -= 35;
+
+    return { ...listing, score: Math.round(clamp(score, 0, 100)) };
   });
 
-  // Sort descending by score
   return scored.sort((a, b) => b.score - a.score);
 }

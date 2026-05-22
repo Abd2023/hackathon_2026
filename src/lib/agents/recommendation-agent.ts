@@ -4,7 +4,7 @@ import { RECOMMENDATION_AGENT_SYSTEM_PROMPT } from "../gemini/prompts";
 import { MarketplaceListing } from "../schemas/marketplace";
 import { ProductIdentification } from "../schemas/product";
 import { RecommendationResult, DealBreakerEvaluation } from "../schemas/analysis";
-import { scoreListings } from "../scoring/score-listings";
+import { scoreListings, ScoredListing } from "../scoring/score-listings";
 
 const recommendationSchema: Schema = {
   type: Type.OBJECT,
@@ -29,6 +29,78 @@ const recommendationSchema: Schema = {
   ],
 };
 
+function stripScores(listings: ScoredListing[]): MarketplaceListing[] {
+  return listings.map((scoredListing) => {
+    const { score, ...listing } = scoredListing;
+    void score;
+    return listing;
+  });
+}
+
+function buildDeterministicRecommendation(
+  productInfo: ProductIdentification,
+  listings: MarketplaceListing[],
+  dealBreakerEval?: DealBreakerEvaluation,
+  reason = "Gemini final öneri adımı geçici olarak tamamlanamadı."
+): RecommendationResult {
+  const scored = scoreListings(listings, dealBreakerEval);
+  const best = scored[0] || listings[0];
+  const alt = scored.length > 1 ? scored[1] : undefined;
+  const scoredListings = scored.length > 0 ? stripScores(scored) : listings;
+
+  const visualConfidence = Math.round(productInfo.visualConfidence || 0);
+  const scoreConfidence = best && "score" in best ? best.score : 50;
+  const matchPercent = Math.round(
+    Math.min(96, Math.max(35, scoreConfidence * 0.7 + visualConfidence * 0.3))
+  );
+
+  const lowVisionConfidence = visualConfidence > 0 && visualConfidence < 45;
+  const dealBreakerFailed = dealBreakerEval?.verdict === "fail";
+  const dealBreakerUncertain = dealBreakerEval?.verdict === "uncertain";
+
+  let decisionTitle = "En Mantıklı Seçenek";
+  if (dealBreakerFailed) decisionTitle = "Özel Şart İçin Riskli";
+  else if (dealBreakerUncertain || lowVisionConfidence) decisionTitle = "Kanıt Sınırlı, Dikkatli Alın";
+
+  const pros: string[] = [];
+  const cons: string[] = [];
+
+  if (best?.sellerRating) pros.push(`Satıcı puanı güçlü: ${best.sellerRating}/5`);
+  if (best?.productRating) pros.push(`Ürün puanı: ${best.productRating}/5`);
+  if (best?.reviewCount) pros.push(`${best.reviewCount.toLocaleString("tr-TR")} yorum sinyali var`);
+  if (best?.returnPolicySummary) pros.push(best.returnPolicySummary);
+  if (pros.length === 0 && best) pros.push("Mevcut veriler içinde en dengeli seçenek");
+
+  if (dealBreakerFailed) cons.push("Kullanıcının özel şartı için olumsuz sinyal var");
+  if (dealBreakerUncertain) cons.push("Özel şart için yeterli yorum kanıtı yok");
+  if (best?.sourceStatus !== "live") cons.push("Canlı pazaryeri verisi yerine demo/önbellek kanıtı kullanıldı");
+  if (!best?.reviewSnippets?.length) cons.push("Detaylı yorum alıntısı sınırlı");
+
+  return {
+    product: productInfo,
+    listings: scoredListings,
+    bestListing: best,
+    alternativeListing: alt,
+    matchPercent,
+    decisionTitle,
+    decisionSummary: best
+      ? `${productInfo.productName} için ${best.source.toUpperCase()} seçeneği fiyat, satıcı güveni, yorum sinyali ve iade bilgisine göre öne çıktı.`
+      : `${productInfo.productName} için yeterli pazaryeri kanıtı bulunamadı.`,
+    pros,
+    cons,
+    dealBreaker: dealBreakerEval,
+    evidenceLimitations: [
+      reason,
+      ...(!listings.some((listing) => listing.sourceStatus === "live")
+        ? ["Canlı scraping başarısız olduğu için ürünle uyumlu demo/önbellek verisi kullanıldı."]
+        : []),
+      ...(lowVisionConfidence
+        ? ["Görsel ürün eşleşme güveni düşük; sonuçlar kontrol edilmelidir."]
+        : []),
+    ],
+  };
+}
+
 export async function runRecommendationAgent(
   productInfo: ProductIdentification,
   listings: MarketplaceListing[],
@@ -45,47 +117,40 @@ ${dealBreakerEval ? `Deal-Breaker Değerlendirmesi: ${JSON.stringify(dealBreaker
   `;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawResult = await generateStructuredContent<Record<string, any>>(
+    const rawResult = await generateStructuredContent<Record<string, unknown>>(
       prompt,
       RECOMMENDATION_AGENT_SYSTEM_PROMPT,
       recommendationSchema,
-      "gemini-2.5-pro"
+      "gemini-2.5-flash"
     );
 
-    const bestListing = listings.find((l) => l.url === rawResult.bestListingUrl) || listings[0];
-    const alternativeListing = rawResult.alternativeListingUrl
-      ? listings.find((l) => l.url === rawResult.alternativeListingUrl)
+    const bestListingUrl = typeof rawResult.bestListingUrl === "string" ? rawResult.bestListingUrl : "";
+    const alternativeListingUrl = typeof rawResult.alternativeListingUrl === "string"
+      ? rawResult.alternativeListingUrl
       : undefined;
 
+    const bestListing = listings.find((listing) => listing.url === bestListingUrl) || listings[0];
+    const alternativeListing = alternativeListingUrl
+      ? listings.find((listing) => listing.url === alternativeListingUrl)
+      : listings.find((listing) => listing.url !== bestListing?.url);
+
     return {
-      bestListing: bestListing,
-      alternativeListing: alternativeListing ? alternativeListing : undefined,
-      matchPercent: rawResult.matchPercent,
-      decisionTitle: rawResult.decisionTitle,
-      decisionSummary: rawResult.decisionSummary,
-      pros: rawResult.pros,
-      cons: rawResult.cons,
+      product: productInfo,
+      listings,
+      bestListing,
+      alternativeListing,
+      matchPercent: Number(rawResult.matchPercent) || productInfo.visualConfidence,
+      decisionTitle: String(rawResult.decisionTitle || "Analiz Sonucu"),
+      decisionSummary: String(rawResult.decisionSummary || ""),
+      pros: Array.isArray(rawResult.pros) ? rawResult.pros.map(String) : [],
+      cons: Array.isArray(rawResult.cons) ? rawResult.cons.map(String) : [],
       dealBreaker: dealBreakerEval,
-      evidenceLimitations: rawResult.evidenceLimitations,
+      evidenceLimitations: Array.isArray(rawResult.evidenceLimitations)
+        ? rawResult.evidenceLimitations.map(String)
+        : [],
     };
   } catch (error) {
     console.warn("Recommendation agent failed, falling back to deterministic scoring", error);
-    
-    const scored = scoreListings(listings, dealBreakerEval);
-    const best = scored[0] || listings[0];
-    const alt = scored.length > 1 ? scored[1] : undefined;
-
-    return {
-      bestListing: best,
-      alternativeListing: alt ? alt : undefined,
-      matchPercent: productInfo.visualConfidence,
-      decisionTitle: dealBreakerEval?.verdict === "fail" ? "Özel Şartı Sağlamıyor" : "Güvenle Alabilirsiniz (Otomatik Puanlama)",
-      decisionSummary: `Yapay zeka analizinde hata oluştuğu için temel fiyat/puan tabanlı sıralama yapıldı.`,
-      pros: ["En düşük fiyata sahip olabilir"],
-      cons: ["Detaylı yorum analizi yapılamadı"],
-      dealBreaker: dealBreakerEval,
-      evidenceLimitations: ["Yapay zeka kararı alınamadı, deterministik kurallar uygulandı."],
-    };
+    return buildDeterministicRecommendation(productInfo, listings, dealBreakerEval);
   }
 }

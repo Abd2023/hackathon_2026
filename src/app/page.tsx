@@ -5,6 +5,7 @@ import { HeaderBar } from "@/components/ui/HeaderBar";
 import { AgentProgress } from "@/components/loading/AgentProgress";
 
 import { ResultView } from "@/components/results/ResultView";
+import { RecommendationResult } from "@/lib/schemas/analysis";
 
 export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -13,14 +14,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [resultData, setResultData] = useState<any>(null);
+  const [resultData, setResultData] = useState<RecommendationResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleProgressComplete = () => {
-    setIsLoading(false);
-    setShowResult(true);
-  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,9 +62,10 @@ export default function Home() {
         throw new Error(errData?.error || "Analiz sırasında bir hata oluştu.");
       }
 
-      const data = await response.json();
+      const data = await response.json() as RecommendationResult;
       setResultData(data);
-      handleProgressComplete();
+      setIsLoading(false);
+      setShowResult(true);
     } catch (err: unknown) {
       setError((err as Error).message);
       setIsLoading(false);
@@ -80,6 +76,7 @@ export default function Home() {
     setImageFile(null);
     setImagePreview(null);
     setDealBreaker("");
+    setResultData(null);
     setShowResult(false);
   };
 
@@ -88,9 +85,9 @@ export default function Home() {
       <HeaderBar />
       
       {isLoading ? (
-        <AgentProgress onComplete={handleProgressComplete} />
+        <AgentProgress />
       ) : showResult && resultData ? (
-        <ResultView result={resultData} onReset={resetFlow} />
+        <ResultView result={resultData} imagePreview={imagePreview} onReset={resetFlow} />
       ) : (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
           <section className="flex flex-col gap-2">

@@ -1,6 +1,6 @@
 export type SourceFetchResult<T> =
   | { ok: true; data: T; sourceStatus: "live" | "cached" | "fixture" }
-  | { ok: false; reason: "blocked" | "timeout" | "selector_failed" | "network_error" };
+  | { ok: false; reason: "blocked" | "timeout" | "selector_failed" | "price_unavailable" | "network_error" };
 
 export interface MarketplaceConfig {
   id: string;

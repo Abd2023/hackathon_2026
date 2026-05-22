@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MarketplaceListingSchema } from "./marketplace";
+import { ProductIdentificationSchema } from "./product";
 
 export const DealBreakerEvaluationSchema = z.object({
   condition: z.string(),
@@ -12,6 +13,8 @@ export const DealBreakerEvaluationSchema = z.object({
 export type DealBreakerEvaluation = z.infer<typeof DealBreakerEvaluationSchema>;
 
 export const RecommendationResultSchema = z.object({
+  product: ProductIdentificationSchema.optional(),
+  listings: z.array(MarketplaceListingSchema).optional(),
   bestListing: MarketplaceListingSchema.optional(),
   alternativeListing: MarketplaceListingSchema.optional(),
   matchPercent: z.number().min(0).max(100),

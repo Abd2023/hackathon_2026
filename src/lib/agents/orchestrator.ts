@@ -18,6 +18,8 @@ export async function runOrchestrator(
 
   if (rawListings.length === 0) {
      return {
+       product: productInfo,
+       listings: [],
        matchPercent: productInfo.visualConfidence,
        decisionTitle: "Sonuç Bulunamadı",
        decisionSummary: "Kriterlerinize uygun ürün bulunamadı.",
