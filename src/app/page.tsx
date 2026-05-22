@@ -70,8 +70,8 @@ export default function Home() {
       const data = await response.json();
       setResultData(data);
       handleProgressComplete();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError((err as Error).message);
       setIsLoading(false);
     }
   };

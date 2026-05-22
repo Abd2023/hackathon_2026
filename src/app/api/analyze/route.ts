@@ -27,10 +27,10 @@ export async function POST(req: NextRequest) {
     const result = await runOrchestrator(base64Data, mimeType, dealBreaker);
 
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Analysis API failed:", error);
     return NextResponse.json(
-      { error: "Analiz sırasında bir hata oluştu.", details: error.message },
+      { error: "Analiz sırasında bir hata oluştu.", details: (error as Error).message },
       { status: 500 }
     );
   }
