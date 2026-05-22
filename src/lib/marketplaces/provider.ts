@@ -128,11 +128,14 @@ export class HybridProvider implements MarketplaceProvider {
     try {
       const { AmazonProvider } = await import("../scraping/amazon-provider");
       const { HepsiburadaProvider } = await import("../scraping/hepsiburada-provider");
+      const { TrendyolProvider } = await import("../scraping/trendyol-provider");
       const amazon = new AmazonProvider();
       const hepsiburada = new HepsiburadaProvider();
+      const trendyol = new TrendyolProvider();
       const liveResults = (await Promise.all([
         amazon.search(input),
         hepsiburada.search(input),
+        trendyol.search(input),
       ])).flat();
 
       if (liveResults.length > 0) {
