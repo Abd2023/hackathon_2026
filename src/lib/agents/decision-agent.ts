@@ -3,7 +3,7 @@ import { generateStructuredContent } from "../gemini/client";
 import { RECOMMENDATION_AGENT_SYSTEM_PROMPT } from "../gemini/prompts";
 import { MarketplaceListing } from "../schemas/marketplace";
 import { ProductIdentification } from "../schemas/product";
-import { RecommendationResult } from "../schemas/analysis";
+import { RecommendationResult, DealBreakerEvaluation } from "../schemas/analysis";
 import { scoreListings } from "../scoring/score-listings";
 
 const recommendationSchema: Schema = {
@@ -84,9 +84,9 @@ ${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
     console.warn("Decision agent failed, falling back to deterministic scoring", error);
     
     // Fallback to deterministic scoring
-    const dealBreakerEval = dealBreaker ? {
+    const dealBreakerEval: DealBreakerEvaluation | undefined = dealBreaker ? {
       condition: dealBreaker,
-      verdict: "pass" as const,
+      verdict: "pass",
       confidence: 50,
       evidence: ["AI analizi başarısız oldu, manuel değerlendirme yapılamadı."],
     } : undefined;
