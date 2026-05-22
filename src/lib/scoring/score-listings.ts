@@ -11,7 +11,7 @@ export function scoreListings(
 
   // Filter out listings where deal-breaker failed
   const validListings = dealBreaker?.verdict === "fail" 
-    ? listings.filter(l => false) // If deal breaker applies globally and failed, none are valid. In reality, dealbreaker could be per-listing, but keeping it simple for now.
+    ? listings.filter(() => false) // If deal breaker applies globally and failed, none are valid. In reality, dealbreaker could be per-listing, but keeping it simple for now.
     : listings;
 
   if (validListings.length === 0) return [];

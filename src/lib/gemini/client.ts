@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Schema } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -15,6 +15,7 @@ export async function generateStructuredContent<T>(
     throw new Error("GEMINI_API_KEY is not configured.");
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const contents: any[] = [];
   
   if (imageParts && imageParts.length > 0) {
