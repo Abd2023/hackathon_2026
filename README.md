@@ -4,6 +4,10 @@ Görsel Asistan, ürün fotoğrafından alışveriş kararı vermeye yardımcı 
 
 Bu proje Hackathon 2026 için geliştirilmiştir. Yarışma gereği Gemini ana yapay zeka bileşenidir.
 
+> ## [DEMO VİDEOSUNU İZLE](https://drive.google.com/file/d/11RYoWqcKT9RVlsufBtFdxgUpk3l7NeKG/view?usp=sharing)
+>
+> Google Drive üzerinden proje demosunu izleyebilirsiniz.
+
 ## Temel Özellikler
 
 - **Görsel ürün tanıma:** Gemini, yüklenen fotoğraftan ürün adı, marka, model, kategori, arama sorguları, görsel güven puanı ve belirsizlik notları üretir.
