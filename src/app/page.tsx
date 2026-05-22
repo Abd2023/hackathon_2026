@@ -4,6 +4,8 @@ import React, { useState, useRef } from "react";
 import { HeaderBar } from "@/components/ui/HeaderBar";
 import { AgentProgress } from "@/components/loading/AgentProgress";
 
+import { ResultView } from "@/components/results/ResultView";
+
 export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -64,15 +66,7 @@ export default function Home() {
       {isLoading ? (
         <AgentProgress onComplete={handleProgressComplete} />
       ) : showResult ? (
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-          <div className="text-center py-10">
-            <h2 className="text-2xl font-bold mb-4">Sonuç (Demo)</h2>
-            <p>Sonuç ekranı komponenti henüz eklenmedi.</p>
-            <button onClick={resetFlow} className="mt-8 btn-primary">
-              Yeni Arama Yap
-            </button>
-          </div>
-        </div>
+        <ResultView onReset={resetFlow} />
       ) : (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
           <section className="flex flex-col gap-2">
