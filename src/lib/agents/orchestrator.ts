@@ -1,4 +1,4 @@
-import { RecommendationResult } from "../schemas/analysis";
+import { RecommendationResult, DealBreakerEvaluation } from "../schemas/analysis";
 import { runVisionAgent } from "./vision-agent";
 import { FIXTURE_MARKETPLACE_RESULTS } from "../fixtures/marketplace-results";
 import { scoreListings } from "../scoring/score-listings";
@@ -23,9 +23,9 @@ export async function runOrchestrator(
   const rawListings = FIXTURE_MARKETPLACE_RESULTS[searchKey] || FIXTURE_MARKETPLACE_RESULTS["mouse"];
 
   // Step 3: Deal Breaker Agent (Mocked logic for now)
-  const dealBreakerEval = dealBreaker ? {
+  const dealBreakerEval: DealBreakerEvaluation | undefined = dealBreaker ? {
     condition: dealBreaker,
-    verdict: "pass" as const,
+    verdict: "pass",
     confidence: 90,
     evidence: ["Yorumlarda şikayet bulunmadı."],
   } : undefined;
