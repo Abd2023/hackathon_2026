@@ -70,8 +70,8 @@ ${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
       : undefined;
 
     return {
-      bestListing: { ...bestListing, isBest: true },
-      alternativeListing: alternativeListing ? { ...alternativeListing, isBest: false } : undefined,
+      bestListing: bestListing,
+      alternativeListing: alternativeListing ? alternativeListing : undefined,
       matchPercent: rawResult.matchPercent,
       decisionTitle: rawResult.decisionTitle,
       decisionSummary: rawResult.decisionSummary,
@@ -96,8 +96,8 @@ ${dealBreaker ? `Kullanıcı Özel Şartı: ${dealBreaker}` : ""}
     const alt = scored.length > 1 ? scored[1] : undefined;
 
     return {
-      bestListing: { ...best, isBest: true },
-      alternativeListing: alt ? { ...alt, isBest: false } : undefined,
+      bestListing: best,
+      alternativeListing: alt ? alt : undefined,
       matchPercent: productInfo.visualConfidence,
       decisionTitle: dealBreakerEval?.verdict === "fail" ? "Özel Şartı Sağlamıyor" : "Güvenle Alabilirsiniz (Otomatik Puanlama)",
       decisionSummary: `Yapay zeka analizinde hata oluştuğu için temel fiyat/puan tabanlı sıralama yapıldı.`,
