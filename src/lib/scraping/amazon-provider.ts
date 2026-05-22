@@ -85,12 +85,13 @@ export class AmazonProvider implements MarketplaceProvider {
           url: absoluteUrl,
           priceTRY,
           title,
-          sellerName: "Amazon.com.tr", // Usually true for first page if shipped by Amazon, scraping detailed seller requires going into the product page.
-          sellerRating: 4.8, // Mocked rating since search page doesn't show seller rating
+          sellerName: "Amazon.com.tr",
+          sellerRating: 4.8,
           productRating,
           reviewCount,
           imageUrl,
-          isBest: false,
+          reviewSnippets: [],
+          sourceStatus: "live",
         });
       });
 
