@@ -36,8 +36,21 @@ export class HybridProvider implements MarketplaceProvider {
       return this.fixtureProvider.search(input);
     }
 
-    // TODO: Add live scraping provider integration here
-    // For now, if live/hybrid is selected but scraping is not implemented, fallback to fixture
-    return this.fixtureProvider.search(input);
+    try {
+      // Dynamic import to avoid loading Playwright in environments where it might break
+      const { AmazonProvider } = await import("../scraping/amazon-provider");
+      const amazon = new AmazonProvider();
+      const liveResults = await amazon.search(input);
+
+      // If live scraping fails or returns nothing, fallback to fixture
+      if (liveResults.length > 0) {
+        return liveResults;
+      }
+      console.warn("Live scraping returned 0 results, falling back to fixtures.");
+      return this.fixtureProvider.search(input);
+    } catch (err) {
+      console.error("Hybrid provider failed to run live scraper:", err);
+      return this.fixtureProvider.search(input);
+    }
   }
 }
